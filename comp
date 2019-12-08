@@ -1,0 +1,67 @@
+ -COMP1 is used.
+-COMP1 INM is fixed to 1/2 Vref.
+-COMP1 INP is PA1
+-COMP1 OUT is PA0
+
+You can link a button to PA1, in order to put Vcc every time is pressed, and with a pulldown resistor. How Vcc is greater than 1/2 Vref, the COMP changes and generate an interrupt. From the interrupt, The state of PA5 is changed, blinking a led.
+
+RCC->AHBENR |= RCC_AHBENR_GPIOAEN; //Enable port A
+
+RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN; //Enable clock for COMPs
+
+GPIOA->MODER |= GPIO_MODER_MODER1_0 | GPIO_MODER_MODER1_1; //PA1 must be analog (COMP INP)
+
+GPIOA->MODER &= ~GPIO_MODER_MODER0_0; //PA0 must be Alternate function.
+
+GPIOA->MODER |= GPIO_MODER_MODER0_1;
+
+GPIOA->AFR[0] |= 0x00000008; //Alternate 8 = COMP1 OUT
+
+GPIOA->AFR[0] &= 0xFFFFFFF8;
+
+GPIOA->MODER &= ~GPIO_MODER_MODER5_1; //PA5 is Output
+
+GPIOA->MODER |= GPIO_MODER_MODER5_0;
+
+COMP1->CSR &= ~(COMP_CSR_COMPxINSEL_1 | COMP_CSR_COMPxINSEL_2);
+
+COMP1->CSR |= COMP_CSR_COMPxINSEL_0; //INP verf/2 selected
+
+COMP1->CSR |= COMP_CSR_COMPxEN; //Enable COMP1
+
+NVIC_SetPriority(COMP1_2_3_IRQn , 3); //Set the ISR for COMP1
+
+NVIC_EnableIRQ(COMP1_2_3_IRQn);
+
+EXTI->IMR |= EXTI_IMR_IM21; //Enable COMP1 interrupt (EXTI21)
+
+EXTI->RTSR |= EXTI_RTSR_RT21; //Rising trigger for EXTI21
+
+EXTI->FTSR &= ~EXTI_FTSR_FT21;
+
+EXTI->PR |= EXTI_PR_PIF21; //Clean flag Pending Request.
+
+void COMP1_2_3_IRQHandler(void)
+
+{
+
+EXTI->PR |= EXTI_PR_PIF21; //Clean flag Pending Request for EXTI21
+
+//Blink a led on PA5
+if(GPIOA->ODR & 0x00000020)
+
+{
+
+GPIOA->BRR |= 0x00000020;
+
+}
+
+else
+
+{
+
+GPIOA->BSRR |= 0x00000020;
+
+}
+
+}
